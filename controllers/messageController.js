@@ -6,13 +6,13 @@ const Inbox = require("../models/Inbox");
 // GET
 // api/message/[id]
 async function getMessageById(req, res) {
-  const id = req.params.id;
-  if (!id) {
-    return res
-      .status(400)
-      .json({ success: false, message: "message ID is required" });
-  }
   try {
+    const id = req.params.id;
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "message ID is required" });
+    }
     const message = await Message.findOne({ _id: id });
 
     if (!message) {
@@ -41,30 +41,46 @@ async function getMessageById(req, res) {
 // POST
 // api/message
 async function createMessage(req, res) {
-  const { sender, recipient, subject, body } = req.body;
-
-  if (!sender || !recipient || !subject || !body) {
-    return res.status(400).json({
-      success: false,
-      message: "sender, recipient, subject, body are required fields",
-    });
-  }
-
   try {
-    // Check if the sender is authorized
-    if (recipient !== req.jwtData.email) {
-      return res.status(403).json({
+    const {
+      sender,
+      recipient,
+      subject,
+      "body-plain": body,
+      "body-html": bodyHtml,
+    } = req.body;
+
+    if (!sender || !recipient || !subject || !bodyHtml) {
+      return res.status(400).json({
         success: false,
-        message: "You are not authorized",
+        message: "sender, recipient, subject, body are required fields",
       });
     }
 
-    const message = new Message({ sender, recipient, subject, body });
+    const cleanedHtml = bodyHtml
+      .replace(/\\n/g, "") // remove literal \n
+      .replace(/\s*\+\s*/g, "") // remove ` + ` from concatenated lines
+      .replace(/^["']|["']$/g, ""); // remove starting/ending quotes if present
+
+    // Check if the sender is authorized
+    // if (recipient !== req.jwtData.email) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "You are not authorized",
+    //   });
+    // }
+
+    const message = new Message({
+      sender,
+      recipient,
+      subject,
+      bodyHtml: cleanedHtml,
+    });
     await message.save();
 
     // Add the message to the recipient's inbox
-    await Inbox.findOneAndUpdate( 
-      { _id: req.jwtData.userId },
+    await Inbox.findOneAndUpdate(
+      { address: recipient },
       { $push: { messages: message._id } },
       { new: true, upsert: true }
     );
@@ -82,9 +98,9 @@ async function createMessage(req, res) {
 // api/message/[id]
 
 async function deleteMessageById(req, res) {
-  const messageId = req.params.id;
-
   try {
+    const messageId = req.params.id;
+
     const message = await Message.findByIdAndDelete(messageId);
     if (!message) {
       console.error("Invalid Request, message does not exist");

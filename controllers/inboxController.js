@@ -6,14 +6,15 @@ const Message = require("../models/Message");
 // GET
 // api/inbox
 async function getInbox(req, res) {
-  const userId = req.jwtData.userId; // Get the user ID from the JWT token
-  const email = req.jwtData.email;
-
-  if (!userId || !email) {
-    return res.status(400).send({ success: false, error: "ID and email are required" });
-  }
-
   try {
+    const userId = req.jwtData.userId; // Get the user ID from the JWT token
+    const email = req.jwtData.email;
+
+    if (!userId || !email) {
+      return res
+        .status(400)
+        .send({ success: false, error: "ID and email are required" });
+    }
 
     // Find the inbox by userId
     const inbox = await Inbox.findById(userId);
@@ -34,7 +35,7 @@ async function getInbox(req, res) {
         _id: userId,
         address: email,
         createdAt: new Date(),
-        messages: [ welcomeMessage._id ],
+        messages: [welcomeMessage._id],
       });
     }
 
@@ -42,10 +43,11 @@ async function getInbox(req, res) {
     const data = await Inbox.find({ _id: userId }).populate("messages");
 
     return res.status(200).send({ success: true, data });
-
   } catch (error) {
     console.error("Error in fetching mails:", error.message);
-    return res.status(500).send({ success: false, error: "Internal Server Error" });
+    return res
+      .status(500)
+      .send({ success: false, error: "Internal Server Error" });
   }
 }
 
